@@ -1,0 +1,1 @@
+midi -> preprocess -> tokenize_dataset -> build_vocab -> tokens_to_id -> train -> generate -> tokens_to_midi
