@@ -15,7 +15,7 @@ HIDDEN_SIZE = 512
 NUM_LAYERS = 2
 DROPOUT = 0.2
 LR = 0.001
-PATIENCE = 5
+PATIENCE = 6
 CHECKPOINT_PATH = "best_model.pt"
 
 # 📚 Wczytaj słownik
