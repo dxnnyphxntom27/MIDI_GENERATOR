@@ -16,8 +16,8 @@ TEMPERATURE = 1.0  # kreatywność, niższa = bardziej przewidywalne
 
 # === PROMPT ===
 prompt_tokens = [
-    "key_E_minor",
-    "tempo_90",
+    "key_E_major",
+    "tempo_80",
     "track_0",
     "instrument_25"
 ]

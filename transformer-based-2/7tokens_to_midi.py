@@ -4,7 +4,7 @@ import json
 
 # === ŚCIEŻKI ===
 INPUT_TOKENS_PATH = "E:/MIDI_GENERATOR/transformer-based-2/generated_tokens.txt"
-CHORD_VOCAB_PATH = "E:/MIDI_GENERATOR/transformer-based-2/vocab.json"
+CHORD_VOCAB_PATH = "E:/MIDI_GENERATOR/transformer-based-2/chord_vocab.json"
 OUTPUT_MIDI_PATH = "E:/MIDI_GENERATOR/transformer-based-2/generated_song.mid"
 
 # === KONFIGURACJA ===
@@ -95,26 +95,26 @@ for idx, token in enumerate(tokens):
             print(f"⚠️ Błędny time_shift: {shift_str}")
 
     elif token.startswith("chord_"):
-        chord_id = token[len("chord_"):]
-        notes = chord_vocab.get(chord_id)
+        notes = chord_vocab.get(token)
         if notes is None:
-            print(f"⚠️ Akord {chord_id} nie znaleziony w słowniku.")
+            if token != "chord_5000":
+                print(f"⚠️ Akord {token} nie znaleziony w słowniku.")
             not_found_chords += 1
             continue
         if not notes:
-            print(f"⚠️ Akord {chord_id} ma pustą listę nut.")
+            print(f"⚠️ Akord {token} ma pustą listę nut.")
             not_found_chords += 1
             continue
 
         found_chords += 1
 
         time = track_times[current_track]
-        print(f"🎶 Track {current_track} | Akord {chord_id} | Nuty: {notes} | Opóźnienie: {time}")
+        print(f"🎶 Track {current_track} | Akord {token} | Nuty: {notes} | Opóźnienie: {time}")
 
         for i, note in enumerate(notes):
             note_time = time if i == 0 else 0
             msg_on = Message("note_on", note=note, velocity=64, time=note_time, channel=track_channels[current_track])
-            msg_off = Message("note_off", note=note, velocity=64, time=TICKS_PER_BEAT // 4, channel=track_channels[current_track])
+            msg_off = Message("note_off", note=note, velocity=64, time=TICKS_PER_BEAT // 2, channel=track_channels[current_track])
             tracks[current_track].append(msg_on)
             tracks[current_track].append(msg_off)
             print(f"   🎹 Nutka: {note} (ON z opóźnieniem {note_time}, OFF za {TICKS_PER_BEAT // 4})")

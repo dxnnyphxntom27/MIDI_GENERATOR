@@ -1,7 +1,7 @@
 import mido
 
 # Ścieżka do pliku MIDI i pliku wynikowego
-midi_path = 'E:/MIDI_GENERATOR/generated_song.mid'
+midi_path = 'E:/MIDI_GENERATOR/transformer-best/generated.mid'
 output_path = 'text_midi_output.txt'
 
 # Wczytaj plik MIDI
