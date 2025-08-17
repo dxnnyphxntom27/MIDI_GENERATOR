@@ -96,8 +96,13 @@ def process_tokenize_file(args):
         tokens = [DEFAULT_KEY]
 
     # Tempo
-    tempo = int(pm.get_tempo_changes()[1][0]) if pm.get_tempo_changes()[1].size > 0 else 120
-    tokens.append(f"tempo_{tempo}")
+    try:
+        tempos = pm.get_tempo_changes()[1]
+        base_tempo = float(tempos[0]) if tempos.size > 0 else 120.0
+    except Exception:
+        base_tempo = 120.0
+    tempo_quantized = int(round(base_tempo / 5.0) * 5)
+    tokens.append(f"tempo_{tempo_quantized}")
 
     # Metadane i nuty dla każdej ścieżki
     track_metadata = []
