@@ -12,11 +12,10 @@ VOCAB_REV_PATH = BASE / "vocab_reverse.json"
 CHORD_VOCAB_PATH = BASE / "chord_vocab.json"
 MULTI_NOTE_CHORDS_PATH = BASE / "multiple_notes_chord_list.txt"
 CHECKPOINT_PATH = BASE / "best_model.pt"
-OUTPUT_MIDI = BASE / "generated.mid"
+DEFAULT_OUTPUT_MIDI = BASE / "generated.mid"
 
-# === PARAMETRY GENERACJI ===
-MAX_TOKENS = 100
-DEFAULT_START_TOKENS = ["key_unknown", "tempo_120", "track_0", "instrument_0"]
+# === PARAMETRY DOMYŚLNE ===
+DEFAULT_MAX_TOKENS = 200
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 TIME_RESOLUTION = 24  # ticks per beat
 TEMPERATURE = 1
@@ -58,7 +57,7 @@ def load_multi_note_chords(path: Path):
     with open(path, "r", encoding="utf-8") as f:
         return set(line.strip() for line in f if line.strip())
 
-def has_enough_harmonic_content(tokens, multi_note_chords, min_unique=3):
+def has_enough_harmonic_content(tokens, multi_note_chords, min_unique=2):
     chords_in_gen = {tok for tok in tokens if tok in multi_note_chords}
     return len(chords_in_gen) >= min_unique
 
@@ -115,7 +114,7 @@ def tokens_to_midi(tokens, chord_id_to_notes, output_path,
     import statistics
     print("\n--- DEBUG: INICJALIZACJA PrettyMIDI ---")
     pm = pretty_midi.PrettyMIDI(initial_tempo=float(default_tempo))
-    print(f"Utworzono PrettyMIDI z initial_tempo (argument do konstruktora) = {default_tempo}")
+    print(f"Utworzono PrettyMIDI z initial_tempo = {default_tempo}")
     pm.resolution = time_resolution
     current_tempo = default_tempo
     print(f"DEBUG: Startowy current_tempo: {current_tempo}")
@@ -136,16 +135,13 @@ def tokens_to_midi(tokens, chord_id_to_notes, output_path,
         if token is None:
             i += 1
             continue
-        # tempo
         if isinstance(token, str) and token.startswith("tempo_"):
             try:
                 bpm = float(token.split("_", 1)[1])
             except Exception:
                 bpm = current_tempo
-            clamped = False
             if bpm < min_tempo or bpm > max_tempo:
                 bpm = max(min(bpm, max_tempo), min_tempo)
-                clamped = True
             current_tempo = bpm
             pm._tick_scales.append((current_tick, 60.0 / current_tempo / time_resolution))
             i += 1
@@ -225,7 +221,6 @@ def tokens_to_midi(tokens, chord_id_to_notes, output_path,
         print(f"Format: 1, Ścieżki: {len(instruments)}, Czas (s): {sum(len(inst.notes) for inst in pm.instruments) and (max((n.end for inst in pm.instruments for n in inst.notes), default=0)):.2f}")
         print(f"🎚 time_shift count: {cnt_time_shift}, duration tokens: {cnt_duration}, chord tokens placed: {cnt_chord}")
         if duration_vals:
-            import statistics
             print(f"Durations (ticks) — min:{min(duration_vals)}, max:{max(duration_vals)}, mean:{statistics.mean(duration_vals):.1f}")
     pm.write(str(output_path))
     print(f"DEBUG: Plik MIDI zapisany do: {output_path}")
@@ -265,14 +260,14 @@ def generate_tokens(model, token_to_id, id_to_token, max_tokens=500, start_token
     return generated_tokens
 
 def generate_midi_from_prompt(
-    start_tokens=None,
-    max_tokens=MAX_TOKENS,
-    output_midi=OUTPUT_MIDI,
+    start_tokens,
+    max_tokens=DEFAULT_MAX_TOKENS,
+    output_midi=DEFAULT_OUTPUT_MIDI,
     temperature=TEMPERATURE,
     top_k=TOP_K,
     stop_token=STOP_TOKEN,
     max_tries=MAX_TRIES,
-    verbose=True,
+    verbose=True
 ):
     token_to_id, id_to_token, chord_id_to_notes = load_vocab()
     multi_note_chords = load_multi_note_chords(MULTI_NOTE_CHORDS_PATH)
@@ -290,10 +285,11 @@ def generate_midi_from_prompt(
     else:
         model.load_state_dict(ckpt)
     model.to(DEVICE)
-    print(f"✅ Wczytano model z {CHECKPOINT_PATH}")
-    start_tokens = start_tokens if start_tokens is not None else DEFAULT_START_TOKENS
+    if verbose:
+        print(f"✅ Wczytano model z {CHECKPOINT_PATH}")
     for attempt in range(1, max_tries + 1):
-        print(f"\n🎲 Próba generacji #{attempt}...")
+        if verbose:
+            print(f"\n🎲 Próba generacji #{attempt}...")
         tokens = generate_tokens(
             model=model,
             token_to_id=token_to_id,
@@ -307,34 +303,21 @@ def generate_midi_from_prompt(
         harmonic = has_enough_harmonic_content(tokens, multi_note_chords)
         repetition = has_excessive_repetition(tokens, max_repeat=2)
         if harmonic and not repetition:
-            print(f"✅ Sukces: Znaleziono {len(tokens)} tokenów z wystarczającą ilością akordów, bez zapętleń")
+            if verbose:
+                print(f"✅ Sukces: Znaleziono {len(tokens)} tokenów z wystarczającą ilością akordów, bez zapętleń")
             break
         elif not harmonic:
-            print("⚠️ Niewystarczająca liczba różnych wielonutowych akordów — ponawiam próbę.")
+            if verbose:
+                print("⚠️ Niewystarczająca liczba różnych wielonutowych akordów — ponawiam próbę.")
         elif repetition:
-            print("⚠️ Powtarzający się akord więcej niż 2x z rzędu — ponawiam próbę.")
+            if verbose:
+                print("⚠️ Powtarzający się akord więcej niż 2x z rzędu — ponawiam próbę.")
     else:
-        print("❌ Nie udało się wygenerować muzyki z wymaganiami.")
+        if verbose:
+            print("❌ Nie udało się wygenerować muzyki z wymaganiami.")
         return None
     tokens = process_durations_and_time_shifts(tokens)
     midi_path = tokens_to_midi(tokens, chord_id_to_notes, output_midi, verbose=verbose)
-    print(f"💾 Zapisano plik MIDI: {midi_path}")
+    if verbose:
+        print(f"💾 Zapisano plik MIDI: {midi_path}")
     return midi_path
-
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="Generuj muzykę na podstawie promptu")
-    parser.add_argument("--tempo", type=int, default=120, help="Tempo startowe (BPM, domyślnie 120)")
-    args = parser.parse_args()
-    tempo = max(20, min(300, int(round(args.tempo / 5) * 5)))
-    start_tokens = ["key_unknown", f"tempo_{tempo}", "track_0", "instrument_0"]
-    generate_midi_from_prompt(
-        start_tokens=start_tokens,
-        max_tokens=MAX_TOKENS,
-        output_midi=OUTPUT_MIDI,
-        temperature=TEMPERATURE,
-        top_k=TOP_K,
-        stop_token=STOP_TOKEN,
-        max_tries=MAX_TRIES,
-        verbose=True,
-    )
