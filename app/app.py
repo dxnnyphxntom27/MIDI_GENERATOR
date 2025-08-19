@@ -3,7 +3,8 @@ import json
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QListWidget,
-    QFileDialog, QLabel, QStackedWidget, QHBoxLayout, QSlider, QSizePolicy
+    QFileDialog, QLabel, QStackedWidget, QHBoxLayout, QSlider, QSizePolicy,
+    QComboBox
 )
 from PyQt6.QtCore import Qt
 
@@ -69,6 +70,17 @@ USER_INPUT_SLIDER_STYLE = """
         border-radius: 2px;
     }
 """
+
+INSTRUMENTS = [
+    (0,  "Acoustic Grand Piano"),
+    (1,  "Bright Acoustic Piano"),
+    (24, "Acoustic Guitar (steel)"),
+    (25, "Acoustic Guitar (nylon)"),
+    (27, "Electric Guitar (clean)"),
+    (28, "Electric Guitar (muted)"),
+    (29, "Overdriven Guitar"),
+    (30, "Distortion Guitar"),
+]
 
 
 class ToggleWidget(QWidget):
@@ -335,8 +347,10 @@ class StandardGenTab(QWidget):
         label.setStyleSheet("font-size: 16px; margin-bottom: 16px; color: #9fb8d4; font-weight: 500;")
         layout.addWidget(label)
 
-        # --- Slider TEMPO ---
-        tempo_row = QHBoxLayout()
+        # TEMPO + INSTRUMENT w jednym rzędzie
+        param_row = QHBoxLayout()
+        
+        # TEMPO SLIDER
         tempo_label = QLabel("Tempo (BPM):")
         self.tempo_slider = QSlider(Qt.Orientation.Horizontal)
         self.tempo_slider.setMinimum(70)
@@ -345,20 +359,37 @@ class StandardGenTab(QWidget):
         self.tempo_slider.setTickInterval(5)
         self.tempo_slider.setValue(120)
         self.tempo_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.tempo_slider.setFixedWidth(260)
-        self.tempo_slider.setStyleSheet(SLIDER_STYLE)
+        self.tempo_slider.setFixedWidth(170)
+        self.tempo_slider.setStyleSheet("""
+            QSlider::groove:horizontal { border: none; height: 4px; background: #394B59; margin: 0px 0; border-radius: 2px; }
+            QSlider::handle:horizontal { background: #4361ee; border: none; width: 18px; height: 18px; margin: -7px 0; border-radius: 9px; }
+            QSlider::sub-page:horizontal { background: #4869f6; border-radius: 2px; }
+            QSlider::add-page:horizontal { background: #222A30; border-radius: 2px; }
+        """)
         self.tempo_slider.valueChanged.connect(self.update_tempo_label)
         self.tempo_display = QLabel(str(self.tempo_slider.value()))
-        self.tempo_display.setStyleSheet("color: #A0AAB8; font-weight: bold; margin-left: 10px;")
-        tempo_row.addWidget(tempo_label)
-        tempo_row.addWidget(self.tempo_slider)
-        tempo_row.addWidget(self.tempo_display)
-        tempo_row.addStretch(1)
-        layout.addLayout(tempo_row)
+        self.tempo_display.setStyleSheet("color: #A0AAB8; font-weight: bold; margin-left: 10px; margin-right: 20px;")
+        param_row.addWidget(tempo_label)
+        param_row.addWidget(self.tempo_slider)
+        param_row.addWidget(self.tempo_display)
 
-        # --- Slider długości ---
+        # INSTRUMENT DROPDOWN
+        instrument_label = QLabel("Instrument:")
+        self.instrument_dropdown = QComboBox()
+        for num, name in INSTRUMENTS:
+            self.instrument_dropdown.addItem(name, num)
+        self.instrument_dropdown.setCurrentIndex(0)
+        self.instrument_dropdown.setStyleSheet(
+            "background: #222A30; color: #EEE; border-radius: 8px; padding: 2px 8px; font-size: 15px;"
+        )
+        param_row.addWidget(instrument_label)
+        param_row.addWidget(self.instrument_dropdown)
+        param_row.addStretch(1)
+        layout.addLayout(param_row)
+
+        # --- DŁUGOŚĆ ---
         len_row = QHBoxLayout()
-        len_label = QLabel("Length (tokens):")
+        len_label = QLabel("Song length (tokens):")
         self.len_slider = QSlider(Qt.Orientation.Horizontal)
         self.len_slider.setMinimum(150)
         self.len_slider.setMaximum(500)
@@ -367,7 +398,12 @@ class StandardGenTab(QWidget):
         self.len_slider.setValue(200)
         self.len_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.len_slider.setFixedWidth(260)
-        self.len_slider.setStyleSheet(SLIDER_STYLE)
+        self.len_slider.setStyleSheet("""
+            QSlider::groove:horizontal { border: none; height: 4px; background: #394B59; margin: 0px 0; border-radius: 2px; }
+            QSlider::handle:horizontal { background: #4361ee; border: none; width: 18px; height: 18px; margin: -7px 0; border-radius: 9px; }
+            QSlider::sub-page:horizontal { background: #4869f6; border-radius: 2px; }
+            QSlider::add-page:horizontal { background: #222A30; border-radius: 2px; }
+        """)
         self.len_slider.valueChanged.connect(self.update_len_label)
         self.len_display = QLabel(str(self.len_slider.value()))
         self.len_display.setStyleSheet("color: #A0AAB8; font-weight: bold; margin-left: 10px;")
@@ -399,7 +435,6 @@ class StandardGenTab(QWidget):
         )
         btn_generate.clicked.connect(self.generate_standard)
         layout.addWidget(btn_generate)
-
         self.setLayout(layout)
 
     def update_tempo_label(self, value):
@@ -417,17 +452,21 @@ class StandardGenTab(QWidget):
         self.len_display.setText(str(snapped))
 
     def generate_standard(self):
-        tempo = int(round(self.tempo_slider.value() / 5) * 5)
+        tempo = self.tempo_slider.value()
+        tempo = int(round(tempo / 5) * 5)
         max_tokens = self.len_slider.value()
+        max_tokens = int(round(max_tokens / 10) * 10)
+        instr_num = int(self.instrument_dropdown.currentData())
         start_tokens = [
             "key_unknown",
             f"tempo_{tempo}",
             "track_0",
-            "instrument_0"
+            f"instrument_{instr_num}"
         ]
-        self.status_label.setText(f"⏳ Generating with tempo {tempo} BPM...")
+        self.status_label.setText(f"⏳ Generating with tempo {tempo} BPM, instrument {instr_num}...")
         QApplication.processEvents()
         try:
+            import generate
             midi_path = generate.generate_midi_from_prompt(
                 start_tokens=start_tokens,
                 max_tokens=max_tokens,
@@ -444,6 +483,7 @@ class StandardGenTab(QWidget):
                 self.status_label.setText("❌ Generation failed (model didn't meet musical requirements).")
         except Exception as e:
             self.status_label.setText(f"❌ MIDI generation failed: {e}")
+
 
 class MainApp(QWidget):
     def __init__(self):
