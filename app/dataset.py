@@ -5,27 +5,6 @@ from pathlib import Path
 
 
 class MusicDataset(Dataset):
-    """
-    Dataset dla Twoich plików .npy z tokenami.
-
-    Obsługuje dwa formaty wejściowe:
-      - 2D: (num_sequences, seq_len) -- DOMYŚLNY i PREFEROWANY
-      - 1D: (total_tokens,) -- zostanie pocięty na sekwencje o długości seq_len
-
-    Konstruktor:
-        MusicDataset(npy_path, seq_len=None, ignore_index=-100, mask_last=True)
-
-    Args:
-        npy_path (str/Path): ścieżka do pliku .npy (train.npy / val.npy)
-        seq_len (int|None): wymagane tylko gdy wejście jest 1D (do pocięcia)
-        ignore_index (int): wartość, którą ustawiamy w y[-1] jeśli mask_last=True
-        mask_last (bool): czy ustawić y[-1] = ignore_index (domyślnie True)
-
-    Zwraca w __getitem__:
-        x: LongTensor [seq_len]
-        y: LongTensor [seq_len] (y[:-1] = x[1:], y[-1] = ignore_index jeśli mask_last)
-    """
-
     def __init__(self, npy_path, seq_len=None, ignore_index=-100, mask_last=True):
         self.path = Path(npy_path)
         if not self.path.exists():
@@ -42,17 +21,14 @@ class MusicDataset(Dataset):
         elif arr.ndim == 1:
             if seq_len is None:
                 raise ValueError(
-                    "Plik .npy jest 1D — podaj seq_len, aby pociąć go na sekwencje, "
-                    "lub uruchom build_sequences_from_tokens.py żeby wygenerować 2D .npy."
+                    "1d, "
+                    "2d."
                 )
             total = len(arr)
             num_full = total // seq_len
             if num_full == 0:
-                raise ValueError("Plik 1D jest za krótki względem podanego seq_len.")
+                raise ValueError("1D too short.")
             new_len = num_full * seq_len
-            if new_len != total:
-                # krótkie ostrzeżenie — przycinamy tail
-                print(f"⚠️ Przycinam 1D {self.path} z {total} -> {new_len} tokenów (usunę {total - new_len}).")
             flat = np.array(arr[:new_len], dtype=np.int32)
             self.data = flat.reshape(num_full, seq_len)
             self.num_sequences, self.seq_len = self.data.shape

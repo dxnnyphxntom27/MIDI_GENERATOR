@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QComboBox
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
 
 import tokenize_user_input
 import prompt_generator
@@ -528,5 +529,6 @@ class MainApp(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     win = MainApp()
+    win.setWindowIcon(QIcon("app/icon.png"))
     win.show()
     sys.exit(app.exec())
