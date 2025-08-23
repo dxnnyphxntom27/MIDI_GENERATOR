@@ -40,13 +40,9 @@ def generate_prompt(
     random_instrument=False,
     mode="multi"
 ):
-    """
-    token_dir: katalog z plikami .txt (tokeny ztokenizowane)
-    prompt_out: plik wyjściowy (np. "app/user_prompt.txt")
-    """
     token_files = sorted(Path(token_dir).glob("*.txt"))
     if not token_files:
-        print(f"❌ Nie znaleziono plików .txt w katalogu: {token_dir}")
+        print(f"❌ No .txt files found in directory: {token_dir}")
         return
 
     all_tokens = []
@@ -56,7 +52,7 @@ def generate_prompt(
     for txt_path in token_files:
         tokens = load_tokens(txt_path)
         if len(tokens) < 5:
-            print(f"⚠️ Za mało tokenów w pliku {txt_path}, pomijam")
+            print(f"⚠️ Too few tokens in file {txt_path}, skipping")
             continue
         meta, body = extract_meta_and_body(tokens)
         tempo = get_tempo_from_meta(meta)
@@ -72,10 +68,9 @@ def generate_prompt(
             all_tokens.append((meta, body_part))
             break
 
-    # --- Ustal meta promptu ---
     meta_prompt = ["key_unknown"]
     tempo_final = int(round(sum(tempos) / len(tempos))) if tempos else 120
-    tempo_quantized = int(round(tempo_final / 5.0) * 5)  # <-- kwantyzacja do najbliższej liczby podzielnej przez 5
+    tempo_quantized = int(round(tempo_final / 5.0) * 5)
     meta_prompt.append(f"tempo_{tempo_quantized}")
     meta_prompt.append("track_0")
     if instruments:
@@ -84,22 +79,18 @@ def generate_prompt(
     else:
         meta_prompt.append("instrument_0")
 
-    # --- Buduj prompt ---
     prompt = meta_prompt.copy()
     for meta, body_part in all_tokens:
         prompt.extend(body_part)
         if len(prompt) >= max_tokens:
             break
 
-    # (opcjonalnie) usuń duration_0
     prompt = [t for t in prompt if not t.startswith("duration_0")]
     prompt = prompt[:max_tokens]
 
-    # --- Zapisz prompt ---
     with open(prompt_out, "w", encoding="utf-8") as f:
         for t in prompt:
             f.write(t + "\n")
 
-    print(f"✅ Prompt zapisany do {prompt_out}: {len(prompt)} tokenów")
+    print(f"✅ Prompt saved to {prompt_out}: {len(prompt)} tokens")
     print("Prompt preview:", prompt[:10], "..." if len(prompt) > 10 else "")
-

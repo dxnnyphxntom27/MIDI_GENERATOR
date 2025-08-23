@@ -13,6 +13,7 @@ import tokenize_user_input
 import prompt_generator
 import generate_from_input as generatefi
 import generate
+from datetime import datetime
 import clear
 
 SAVE_PATH = Path("app/user_files.json")
@@ -83,6 +84,10 @@ INSTRUMENTS = [
     (30, "Distortion Guitar"),
 ]
 
+
+def generate_filename():
+    now = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return Path(f"app/generated_{now}.mid")
 
 class ToggleWidget(QWidget):
     def __init__(self, on_toggle):
@@ -323,7 +328,7 @@ class UserInputTab(QWidget):
             midi_path = generatefi.generate_midi_from_prompt(
                 start_tokens=start_tokens,
                 max_tokens=max_tokens,
-                output_midi=GENERATED_MIDI,
+                output_midi=generate_filename(),
                 temperature=1.0,
                 top_k=50,
                 stop_token="<SONG_END>",
@@ -471,7 +476,7 @@ class StandardGenTab(QWidget):
             midi_path = generate.generate_midi_from_prompt(
                 start_tokens=start_tokens,
                 max_tokens=max_tokens,
-                output_midi=GENERATED_MIDI,
+                output_midi=generate_filename(),
                 temperature=1.0,
                 top_k=50,
                 stop_token="<SONG_END>",

@@ -5,7 +5,6 @@ import torch.nn.functional as F
 import pretty_midi
 from model import TransformerModel
 
-# === ŚCIEŻKI ===
 BASE = Path("E:/MIDI_GENERATOR/app")
 VOCAB_PATH = BASE / "vocab.json"
 VOCAB_REV_PATH = BASE / "vocab_reverse.json"
@@ -14,16 +13,14 @@ MULTI_NOTE_CHORDS_PATH = BASE / "multiple_notes_chord_list.txt"
 CHECKPOINT_PATH = BASE / "best_model.pt"
 DEFAULT_OUTPUT_MIDI = BASE / "generated.mid"
 
-# === PARAMETRY DOMYŚLNE ===
 DEFAULT_MAX_TOKENS = 200
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-TIME_RESOLUTION = 24  # ticks per beat
+TIME_RESOLUTION = 24
 TEMPERATURE = 1
 TOP_K = 50
 STOP_TOKEN = "<SONG_END>"
 MAX_TRIES = 20
 
-# --- Pomocnicze ---
 def load_vocab():
     with open(VOCAB_PATH, "r", encoding="utf-8") as f:
         token_to_id = json.load(f)
@@ -53,7 +50,7 @@ def load_vocab():
 
 def load_multi_note_chords(path: Path):
     if not path.exists():
-        raise FileNotFoundError(f"Nie znaleziono pliku: {path}")
+        raise FileNotFoundError(f"File not found: {path}")
     with open(path, "r", encoding="utf-8") as f:
         return set(line.strip() for line in f if line.strip())
 
@@ -112,12 +109,12 @@ def tokens_to_midi(tokens, chord_id_to_notes, output_path,
                    max_beats=64,
                    verbose=True):
     import statistics
-    print("\n--- DEBUG: INICJALIZACJA PrettyMIDI ---")
+    print("\n--- DEBUG: Initializing PrettyMIDI ---")
     pm = pretty_midi.PrettyMIDI(initial_tempo=float(default_tempo))
-    print(f"Utworzono PrettyMIDI z initial_tempo = {default_tempo}")
+    print(f"Created PrettyMIDI with initial_tempo = {default_tempo}")
     pm.resolution = time_resolution
     current_tempo = default_tempo
-    print(f"DEBUG: Startowy current_tempo: {current_tempo}")
+    print(f"DEBUG: Starting current_tempo: {current_tempo}")
     current_tick = 0
     current_track_idx = None
     instruments = {}
@@ -218,12 +215,12 @@ def tokens_to_midi(tokens, chord_id_to_notes, output_path,
     for idx in sorted(instruments.keys()):
         pm.instruments.append(instruments[idx])
     if verbose:
-        print(f"Format: 1, Ścieżki: {len(instruments)}, Czas (s): {sum(len(inst.notes) for inst in pm.instruments) and (max((n.end for inst in pm.instruments for n in inst.notes), default=0)):.2f}")
+        print(f"Format: 1, Tracks: {len(instruments)}, Duration (s): {sum(len(inst.notes) for inst in pm.instruments) and (max((n.end for inst in pm.instruments for n in inst.notes), default=0)):.2f}")
         print(f"🎚 time_shift count: {cnt_time_shift}, duration tokens: {cnt_duration}, chord tokens placed: {cnt_chord}")
         if duration_vals:
             print(f"Durations (ticks) — min:{min(duration_vals)}, max:{max(duration_vals)}, mean:{statistics.mean(duration_vals):.1f}")
     pm.write(str(output_path))
-    print(f"DEBUG: Plik MIDI zapisany do: {output_path}")
+    print(f"DEBUG: MIDI file saved to: {output_path}")
     return output_path
 
 def generate_tokens(model, token_to_id, id_to_token, max_tokens=500, start_tokens=None,
@@ -286,10 +283,10 @@ def generate_midi_from_prompt(
         model.load_state_dict(ckpt)
     model.to(DEVICE)
     if verbose:
-        print(f"✅ Wczytano model z {CHECKPOINT_PATH}")
+        print(f"✅ Model loaded from {CHECKPOINT_PATH}")
     for attempt in range(1, max_tries + 1):
         if verbose:
-            print(f"\n🎲 Próba generacji #{attempt}...")
+            print(f"\n🎲 Generation attempt #{attempt}...")
         tokens = generate_tokens(
             model=model,
             token_to_id=token_to_id,
@@ -304,20 +301,20 @@ def generate_midi_from_prompt(
         repetition = has_excessive_repetition(tokens, max_repeat=2)
         if harmonic and not repetition:
             if verbose:
-                print(f"✅ Sukces: Znaleziono {len(tokens)} tokenów z wystarczającą ilością akordów, bez zapętleń")
+                print(f"✅ Success: Generated {len(tokens)} tokens with sufficient harmonic content and no excessive loops")
             break
         elif not harmonic:
             if verbose:
-                print("⚠️ Niewystarczająca liczba różnych wielonutowych akordów — ponawiam próbę.")
+                print("⚠️ Not enough unique multi-note chords — retrying.")
         elif repetition:
             if verbose:
-                print("⚠️ Powtarzający się akord więcej niż 2x z rzędu — ponawiam próbę.")
+                print("⚠️ Repeating chord more than twice — retrying.")
     else:
         if verbose:
-            print("❌ Nie udało się wygenerować muzyki z wymaganiami.")
+            print("❌ Failed to generate music that meets requirements.")
         return None
     tokens = process_durations_and_time_shifts(tokens)
     midi_path = tokens_to_midi(tokens, chord_id_to_notes, output_midi, verbose=verbose)
     if verbose:
-        print(f"💾 Zapisano plik MIDI: {midi_path}")
+        print(f"💾 MIDI file saved: {midi_path}")
     return midi_path

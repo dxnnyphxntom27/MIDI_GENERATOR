@@ -4,12 +4,10 @@ import pretty_midi
 import json
 from collections import defaultdict
 
-# === ŚCIEŻKI DOMYŚLNE ===
 CHORD_VOCAB_PATH = Path("E:/MIDI_GENERATOR/app/chord_vocab.json")
 DEFAULT_OUTPUT_DIR = Path("E:/MIDI_GENERATOR/app/USER_TOKENIZED")
 DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# === PARAMETRY ===
 TIME_RESOLUTION = 24
 MAX_NOTES_IN_CHORD = 6
 UNKNOWN_TOKEN_ID = 9999999
@@ -27,7 +25,6 @@ def load_chord_vocab(path):
         if k.startswith("chord_") and isinstance(v, list):
             chord_id = int(k.split("_", 1)[1])
             chord_vocab[tuple(v)] = chord_id
-    # odwrotne mapowanie (tu nie używane, ale zostawiamy)
     rev_vocab = {v: k for k, v in chord_vocab.items()}
     return chord_vocab, rev_vocab
 
@@ -40,7 +37,7 @@ def tokenize_midi_file(
     try:
         pm = pretty_midi.PrettyMIDI(str(midi_path))
     except Exception as e:
-        print(f"❌ Błąd podczas ładowania pliku {midi_path}: {e}")
+        print(f"❌ Error while loading {midi_path}: {e}")
         return None
 
     tokens = [DEFAULT_KEY]
@@ -61,7 +58,7 @@ def tokenize_midi_file(
         track_chords[track_index] = grouped
 
     if not track_chords:
-        print(f"⚠️ Brak ścieżek instrumentalnych w {Path(midi_path).name}, pomijam")
+        print(f"⚠️ No instrument tracks in {Path(midi_path).name}, skipping")
         return None
 
     best_track_id = max(
@@ -93,7 +90,6 @@ def tokenize_midi_file(
         tokens.append(f"duration_{duration_ticks}")
         last_tick = tick
 
-    # Filtrowanie tokenów
     filtered_tokens = []
     skip_next_duration = False
     for tok in tokens:
@@ -115,9 +111,6 @@ def tokenize_files(
     chord_vocab_path=CHORD_VOCAB_PATH,
     output_dir=DEFAULT_OUTPUT_DIR
 ):
-    """
-    Tokenizuje listę plików midi_files i zapisuje .txt do output_dir.
-    """
     chord_vocab, rev_vocab = load_chord_vocab(chord_vocab_path)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -132,9 +125,9 @@ def tokenize_files(
         with open(output_txt, "w", encoding="utf-8") as f:
             f.write("\n".join(tokens))
         num_tokenized += 1
-        print(f"✅ Zapisano tokeny do: {output_txt}")
-    print(f"Tokenizacja zakończona. Plików ztokenizowanych: {num_tokenized}/{len(midi_files)}.")
+        print(f"✅ Tokens saved to: {output_txt}")
+    print(f"Tokenization completed. Tokenized files: {num_tokenized}/{len(midi_files)}.")
 
-# Przykład użycia:
+# Example usage:
 # from tokenize_user_input import tokenize_files
 # tokenize_files(["file1.mid", "file2.mid"], output_dir="app/USER_TOKENIZED")
